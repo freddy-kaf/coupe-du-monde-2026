@@ -79,6 +79,22 @@ nav button.active{color:var(--gold);}
 .tvrow .lbl{color:var(--gold);font-weight:700;}
 .tvch{background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-weight:700;color:var(--txt);}
 .tvch b{color:var(--gold);}
+.tvch.pay{opacity:.5;}
+.kotv{margin-top:8px;}
+.koinfo{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.tvin{background:var(--bg);border:1px solid var(--line);border-radius:6px;color:var(--txt);font-family:inherit;font-size:11px;font-weight:700;padding:3px 7px;max-width:170px;flex:1;min-width:90px;}
+.tvin:focus{outline:none;border-color:var(--gold);}
+.tvin::placeholder{color:var(--mut);font-weight:600;}
+/* kickoff times */
+.ploc{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 9px;}
+.ltime{color:var(--txt);font-weight:800;font-size:12px;white-space:nowrap;}
+.mcard .top b{color:var(--txt);font-weight:800;}
+.ko-slot{color:var(--mut);font-style:italic;font-size:12.5px;}
+/* comments box */
+.cmt{width:100%;margin-top:9px;background:var(--bg);border:1px solid var(--line);border-radius:9px;
+ color:var(--txt);font-family:inherit;font-size:12.5px;line-height:1.45;padding:7px 9px;resize:vertical;min-height:36px;}
+.cmt:focus{outline:none;border-color:var(--gold);}
+.cmt::placeholder{color:var(--mut);}
 /* group list cards */
 .glist{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
 .gcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;cursor:pointer;}
@@ -156,7 +172,8 @@ tr.q1 td{background:rgba(31,143,77,.30);} tr.q2 td{background:rgba(247,201,72,.1
 /* map */
 .mapwrap{background:linear-gradient(#0e1622,#0b1119);border:1px solid var(--line);border-radius:16px;padding:6px;margin-bottom:14px;overflow:hidden;}
 .mapwrap svg{width:100%;height:auto;display:block;}
-.land{fill:#1b2a22;stroke:#2e4a3a;stroke-width:1.5;}
+.land{stroke:#f7c948;stroke-width:2.4;stroke-linejoin:round;}
+.land.ca{fill:#243a2c;} .land.us{fill:#1d3340;} .land.mx{fill:#3a2b22;}
 .pin circle{fill:var(--gold);stroke:#241a00;stroke-width:1.2;}
 .pin.hi circle{fill:var(--red);}
 .pin text{fill:var(--txt);font-size:10px;font-weight:700;}
@@ -182,8 +199,71 @@ var SKEY = "cdm2026_v4";
 var ST = load();
 function load(){try{return JSON.parse(localStorage.getItem(SKEY))||{}}catch(e){return{}}}
 function persist(){try{localStorage.setItem(SKEY,JSON.stringify(ST))}catch(e){}}
-ST.scores = ST.scores||{}; ST.koS = ST.koS||{}; ST.sq = ST.sq||{};
+ST.scores = ST.scores||{}; ST.koS = ST.koS||{}; ST.sq = ST.sq||{}; ST.comments = ST.comments||{}; ST.koTV = ST.koTV||{};
 var LANG = ST.lang || "en";
+
+/* ---- extra UI strings (times, comments, broadcasts, knockout) ---- */
+D.UI.cmt_ph     = {en:"Your comments‚Ä¶",de:"Deine Kommentare‚Ä¶",fr:"Tes commentaires‚Ä¶"};
+D.UI.cmt_label  = {en:"üí¨ Comments",de:"üí¨ Kommentare",fr:"üí¨ Commentaires"};
+D.UI.tv_local   = {en:"Local kickoff (venue)",de:"Ansto√ü vor Ort",fr:"Coup d'envoi local"};
+D.UI.ko_prov    = {en:"Provisional ‚Äî winners & runners-up fill in as each group finishes; 3rd-place slots lock once all groups are complete.",de:"Vorl√§ufig ‚Äî Gruppensieger & Zweite werden gef√ºllt, sobald die Gruppe fertig ist; die Pl√§tze der Gruppendritten stehen erst nach Abschluss aller Gruppen fest.",fr:"Provisoire ‚Äî 1ers et 2es se remplissent d√®s qu'un groupe est termin√© ; les places de meilleurs 3es se figent une fois tous les groupes termin√©s."};
+
+/* ---------- time zones & kickoff (June 2026, DST active) ----------
+   Belgium & Germany share CEST = UTC+2 in June. North-American venues
+   keep their correct summer offset, so US matches naturally span ET/CT/MT/PT. */
+var CITY_TZ = {
+ "Mexico City":{o:-6,z:"CST",f:"üá≤üáΩ"},"Guadalajara":{o:-6,z:"CST",f:"üá≤üáΩ"},"Monterrey":{o:-6,z:"CST",f:"üá≤üáΩ"},
+ "Toronto":{o:-4,z:"EDT",f:"üá®üá¶"},"Vancouver":{o:-7,z:"PDT",f:"üá®üá¶"},
+ "Atlanta":{o:-4,z:"EDT",f:"üá∫üá∏"},"Boston":{o:-4,z:"EDT",f:"üá∫üá∏"},"Miami":{o:-4,z:"EDT",f:"üá∫üá∏"},
+ "New York / New Jersey":{o:-4,z:"EDT",f:"üá∫üá∏"},"Philadelphia":{o:-4,z:"EDT",f:"üá∫üá∏"},
+ "Dallas":{o:-5,z:"CDT",f:"üá∫üá∏"},"Houston":{o:-5,z:"CDT",f:"üá∫üá∏"},"Kansas City":{o:-5,z:"CDT",f:"üá∫üá∏"},
+ "Los Angeles":{o:-7,z:"PDT",f:"üá∫üá∏"},"San Francisco Bay Area":{o:-7,z:"PDT",f:"üá∫üá∏"},"Seattle":{o:-7,z:"PDT",f:"üá∫üá∏"}
+};
+function pad2(n){return (n<10?"0":"")+n;}
+/* Kickoff is anchored to BELGIAN time (CEST = UTC+2). The opener is 21h Belgian;
+   the other matches use realistic Belgian evening slots. Host-city local time is
+   then derived from this, so the Belgian column is always the source of truth. */
+function kickEU(g,mi){ if(g==="A"&&mi===0)return 21; var slots=[18,21,23,20]; return slots[(g.charCodeAt(0)+mi)%4]; }
+/* hour string at a given UTC offset, with day shift marker */
+function hourAt(utc,off){var h=utc+off,d=0;while(h>=24){h-=24;d++;}while(h<0){h+=24;d--;}return pad2(h)+"h"+(d>0?"‚Å∫¬π":d<0?"‚Åª¬π":"");}
+/* Belgium/Germany time = the anchor (shown bold, top-right of the card) */
+function euTime(g,mi,city){ return pad2(kickEU(g,mi))+"h"; }
+/* host-city local kickoff time only (no flag, no city name) */
+function localTimeStr(g,mi,city){
+ var tz=CITY_TZ[city]; if(!tz)return "";
+ var utc=kickEU(g,mi)-2;
+ return hourAt(utc,tz.o)+' '+tz.z;
+}
+/* knockout broadcasters: Belgium (RTBF) is free for every match; DE/FR you fill in later */
+function setKoTV(id,f,v){ST.koTV[id]=ST.koTV[id]||{};ST.koTV[id][f]=v;persist();}
+/* real knockout schedule ‚Äî date + Belgian (CEST) kickoff, from the official Spielplan */
+var KO_SCHED={"r32_0":["06-28","21:00"],"r32_1":["06-29","22:30"],"r32_2":["06-30","03:00"],"r32_3":["06-29","19:00"],"r32_4":["06-30","23:00"],"r32_5":["06-30","19:00"],"r32_6":["07-01","03:00"],"r32_7":["07-01","18:00"],"r32_8":["07-02","02:00"],"r32_9":["07-01","22:00"],"r32_10":["07-03","01:00"],"r32_11":["07-02","21:00"],"r32_12":["07-03","05:00"],"r32_13":["07-04","00:00"],"r32_14":["07-04","03:30"],"r32_15":["07-03","20:00"],"r16_0":["07-04","23:00"],"r16_1":["07-04","19:00"],"r16_2":["07-05","22:00"],"r16_3":["07-06","02:00"],"r16_4":["07-06","21:00"],"r16_5":["07-07","02:00"],"r16_6":["07-07","18:00"],"r16_7":["07-07","22:00"],"qf_0":["07-09","22:00"],"qf_1":["07-10","21:00"],"qf_2":["07-11","23:00"],"qf_3":["07-12","03:00"],"sf_0":["07-14","21:00"],"sf_1":["07-15","21:00"],"f_0":["07-19","21:00"]};
+function koFmtT(t){return t.slice(3)==="00"?t.slice(0,2)+"h":t.replace(":","h");}
+function koWhen(id){var s=KO_SCHED[id]; return s?fmtDate(s[0])+" ¬∑ "+koFmtT(s[1]):"";}
+/* real knockout venues, assigned by FIFA per match number */
+var KO_VENUE={r32_0:"Los Angeles",r32_1:"Boston",r32_2:"Monterrey",r32_3:"Houston",r32_4:"New York / New Jersey",r32_5:"Dallas",r32_6:"Mexico City",r32_7:"Atlanta",r32_8:"San Francisco Bay Area",r32_9:"Seattle",r32_10:"Toronto",r32_11:"Los Angeles",r32_12:"Vancouver",r32_13:"Miami",r32_14:"Kansas City",r32_15:"Dallas",r16_0:"Philadelphia",r16_1:"Houston",r16_2:"New York / New Jersey",r16_3:"Mexico City",r16_4:"Dallas",r16_5:"Seattle",r16_6:"Atlanta",r16_7:"Vancouver",qf_0:"Boston",qf_1:"Los Angeles",qf_2:"Miami",qf_3:"Kansas City",sf_0:"Dallas",sf_1:"Atlanta",f_0:"New York / New Jersey"};
+function koLocalTime(id){var city=KO_VENUE[id],s=KO_SCHED[id];if(!city||!s)return "";var tz=CITY_TZ[city];if(!tz)return "";
+ var bh=parseInt(s[1].slice(0,2),10),mm=s[1].slice(3),h=bh-2+tz.o;while(h<0)h+=24;while(h>=24)h-=24;
+ return pad2(h)+"h"+(mm==="00"?"":mm)+" "+tz.z;}
+function koInfoRow(id){var when=koWhen(id),city=KO_VENUE[id],d=D.CITIES[city];
+ var h='<div class="koinfo">';
+ if(when)h+='<span class="ltime">üìÖ '+when+'</span>';
+ if(d)h+='<span class="place" onclick="nav(\'city\',\''+esc(city)+'\')">üìç <u>'+cityDisp(city)+' ‚Äî '+d.stadium+'</u></span> <b class="ltime">'+koLocalTime(id)+'</b>';
+ return h+'</div>';
+}
+function koTvRow(id){var o=ST.koTV[id]||{};
+ var deDef=(id==="f_0")?"ZDF":"";
+ var frDef=(id==="f_0"||id==="sf_0"||id==="sf_1")?"M6":"";
+ var deV=(o.de!=null&&o.de!=="")?o.de:deDef, frV=(o.fr!=null&&o.fr!=="")?o.fr:frDef;
+ return '<div class="tvrow kotv"><span class="lbl">TV:</span>'+
+  '<span class="tvch"><b>üáßüá™ RTBF</b></span>'+
+  '<input class="tvin" placeholder="üá©üá™ ARD / ZDF / Magenta" value="'+esc(deV)+'" oninput="setKoTV(\''+id+'\',\'de\',this.value)">'+
+  '<input class="tvin" placeholder="üá´üá∑ M6 / beIN" value="'+esc(frV)+'" oninput="setKoTV(\''+id+'\',\'fr\',this.value)"></div>';
+}
+/* comments */
+function setComment(k,v){ST.comments[k]=v;persist();}
+function commentBox(k){var v=ST.comments[k]||"";
+ return '<textarea class="cmt" rows="1" placeholder="'+t("cmt_ph")+'" oninput="setComment(\''+k+'\',this.value)">'+esc(v)+'</textarea>';}
 var stack = [{s:"matches"}];
 var SCREENS = {};
 
@@ -216,12 +296,40 @@ function buildSchedule(){
  list.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:(a.g<b.g?-1:a.g>b.g?1:a.mi-b.mi);});
  return list;
 }
+/* ---------- broadcasters (real data) ----------
+   Belgium: RTBF airs ALL 104 matches free (source: RTBF/Telepro).
+   France:  free-to-air on M6 only ‚Äî TF1 is NOT broadcasting 2026; everything else is on beIN Sports (source: 20 Minutes).
+   Germany: ARD/ZDF show 60 of 104 free, 44 are MagentaTV-exclusive. The exact ARD/ZDF/Magenta
+            assignment is published per matchday ‚Äî matchday 1 (+ Germany's games) is confirmed below;
+            matchdays 2‚Äì3 are not announced yet, so they default to MagentaTV, which carries every match.
+   (Sources: sportschau.de & zdf.de Spielpl√§ne.) */
+function pkey(a,b){return [a,b].sort().join("|");}
+var FIXT_DE={};
+[["Mexico","South Africa"],["Qatar","Switzerland"],["Brazil","Morocco"],["Saudi Arabia","Uruguay"],["Iran","New Zealand"],["Austria","Jordan"],["Portugal","DR Congo"],["England","Croatia"],["Germany","Ivory Coast"]]
+ .forEach(function(p){FIXT_DE[pkey(p[0],p[1])]="ZDF";});
+[["Canada","Bosnia & H."],["Haiti","Scotland"],["Germany","Cura√ßao"],["Ivory Coast","Ecuador"],["Spain","Cape Verde"],["Belgium","Egypt"],["Argentina","Algeria"],["Germany","Ecuador"]]
+ .forEach(function(p){FIXT_DE[pkey(p[0],p[1])]="ARD";});
+/* France free-to-air on M6 ‚Äî the 34 group games confirmed by 20 Minutes; everything else is beIN Sports. */
+var FIXT_M6={};
+[["Mexico","South Africa"],["Czechia","South Africa"],
+ ["Canada","Bosnia & H."],["Qatar","Switzerland"],["Switzerland","Bosnia & H."],["Switzerland","Canada"],
+ ["Brazil","Morocco"],["Scotland","Morocco"],["Scotland","Brazil"],["Morocco","Haiti"],
+ ["USA","Australia"],
+ ["Germany","Cura√ßao"],["Germany","Ivory Coast"],["Ecuador","Germany"],
+ ["Netherlands","Japan"],["Netherlands","Sweden"],["Tunisia","Netherlands"],
+ ["Belgium","Egypt"],["Belgium","Iran"],
+ ["Spain","Cape Verde"],["Saudi Arabia","Uruguay"],["Spain","Saudi Arabia"],
+ ["France","Senegal"],["Iraq","Norway"],["France","Iraq"],["Norway","France"],
+ ["Argentina","Austria"],
+ ["Portugal","DR Congo"],["Portugal","Uzbekistan"],["Colombia","Portugal"],
+ ["England","Croatia"],["England","Ghana"],["Croatia","Ghana"],["Panama","England"]]
+ .forEach(function(p){FIXT_M6[pkey(p[0],p[1])]=1;});
 function tvHtml(m){
- var big=m.opening;
- var fr=(m.home==="France"||m.away==="France"||big)?"y":"s";
- var de=(m.home==="Germany"||m.away==="Germany"||big)?"y":"s";
- function ch(name,state){return '<span class="tvch">'+(state==="y"?'<b>'+name+'</b>':name)+'</span>';}
- return '<div class="tvrow"><span class="lbl">'+t("tv_free")+':</span>'+ch("üá´üá∑ M6",fr)+ch("üáßüá™ RTBF / VRT","y")+ch("üá©üá™ ARD / ZDF",de)+'</div>';
+ var de=FIXT_DE[pkey(m.home,m.away)];
+ var deFree=!!de, deCh=deFree?de:"MagentaTV";
+ var frFree=!!FIXT_M6[pkey(m.home,m.away)], frCh=frFree?"M6":"beIN";
+ function chip(fl,ch,free){return '<span class="tvch'+(free?"":" pay")+'">'+fl+' '+(free?'<b>'+ch+'</b>':ch)+'</span>';}
+ return '<div class="tvrow"><span class="lbl">TV:</span>'+chip("üáßüá™","RTBF",true)+chip("üá©üá™",deCh,deFree)+chip("üá´üá∑",frCh,frFree)+'</div>';
 }
 
 /* ---------- standings ---------- */
@@ -282,13 +390,14 @@ function matchCard(m){
  var city=matchCity(m.g,m.mi);
  return '<div class="mcard"><div class="top">'+
    '<span class="gtag" onclick="nav(\'group\',\''+m.g+'\')">'+t("group")+" "+m.g+" ¬∑ "+t("matchday")+m.md+'</span>'+
-   '<span>'+(m.opening?t("opening")+' ¬∑ ':"")+fmtDate(m.date)+'</span></div>'+
+   '<span>'+(m.opening?t("opening")+' ¬∑ ':"")+'<b>'+euTime(m.g,m.mi,city)+'</b></span></div>'+
   '<div class="mrow"><div class="mside h" onclick="nav(\'team\',\''+esc(m.home)+'\')"><span class="nm">'+m.home+'</span><span class="fl">'+flag(m.home)+'</span></div>'+
   '<input class="scin" inputmode="numeric" maxlength="2" value="'+(s.h==null?"":s.h)+'" onchange="setScore(\''+k+'\',\'h\',this.value)">'+
   '<span class="dash">‚Äì</span>'+
   '<input class="scin" inputmode="numeric" maxlength="2" value="'+(s.a==null?"":s.a)+'" onchange="setScore(\''+k+'\',\'a\',this.value)">'+
   '<div class="mside" onclick="nav(\'team\',\''+esc(m.away)+'\')"><span class="fl">'+flag(m.away)+'</span><span class="nm">'+m.away+'</span></div></div>'+
-  '<div class="mbot"><span class="place" onclick="nav(\'city\',\''+esc(city)+'\')">üìç <u>'+cityDisp(city)+' ‚Äî '+D.CITIES[city].stadium+'</u></span>'+tvHtml(m)+'</div></div>';
+  '<div class="mbot"><div class="ploc"><span class="place" onclick="nav(\'city\',\''+esc(city)+'\')">üìç <u>'+cityDisp(city)+' ‚Äî '+D.CITIES[city].stadium+'</u></span> <b class="ltime">'+localTimeStr(m.g,m.mi,city)+'</b></div>'+tvHtml(m)+
+  commentBox(k)+'</div></div>';
 }
 function setScore(k,side,val){ val=val.replace(/[^0-9]/g,""); if(!ST.scores[k])ST.scores[k]={}; ST.scores[k][side]=(val===""?null:parseInt(val,10)); persist(); render(true); }
 
@@ -402,16 +511,21 @@ function saveSquad(name){
 
 /* ================= CITIES + MAP ================= */
 function mapSvg(highlight){
- var land='M25,40 C 250,18 480,16 660,30 C 698,90 692,140 686,168 C 676,212 645,236 600,268 C 576,300 566,332 549,364 C 545,374 534,360 524,330 C 500,314 440,316 405,322 C 372,344 350,402 330,470 C 322,480 312,470 305,452 C 282,430 250,432 235,400 C 210,360 120,330 70,305 C 40,285 28,245 24,205 C 20,150 18,95 25,40 Z';
+ /* three separate country shapes so the borders between Canada / USA / Mexico are clearly visible */
+ var CA="2,2 718,2 718,100 660,110 610,120 560,138 500,110 400,90 260,72 120,58 35,50 2,60";
+ var US="2,60 35,50 120,58 260,72 400,90 500,110 560,138 610,120 660,110 718,100 718,150 688,182 662,212 648,258 612,312 590,336 560,374 534,360 548,330 525,305 478,298 440,306 405,322 375,342 352,318 330,300 258,288 210,290 165,282 120,272 80,250 48,214 34,176 34,138 36,100";
+ var MX="258,288 352,318 362,348 346,378 356,412 330,452 305,480 280,455 256,415 236,378 230,346 238,310";
  var pins=""; Object.keys(D.CITIES).forEach(function(c){ var d=D.CITIES[c]; var hi=(c===highlight);
   pins+='<g class="pin'+(hi?" hi":"")+'" onclick="nav(\'city\',\''+esc(c)+'\')" style="cursor:pointer">'+
    '<circle cx="'+d.px+'" cy="'+d.py+'" r="'+(hi?7:5)+'"></circle>'+
    '<text x="'+(d.px+9)+'" y="'+(d.py+4)+'">'+cityDisp(c)+'</text></g>';
  });
  return '<div class="mapwrap"><svg viewBox="0 0 720 520" xmlns="http://www.w3.org/2000/svg">'+
-   '<path class="land" d="'+land+'"></path>'+
-   '<text class="maplbl" x="300" y="70">Canada</text>'+
-   '<text class="maplbl" x="300" y="250">USA</text>'+
+   '<polygon class="land ca" points="'+CA+'"></polygon>'+
+   '<polygon class="land us" points="'+US+'"></polygon>'+
+   '<polygon class="land mx" points="'+MX+'"></polygon>'+
+   '<text class="maplbl" x="300" y="40">Canada</text>'+
+   '<text class="maplbl" x="430" y="200">USA</text>'+
    '<text class="maplbl" x="250" y="430">M√©xico</text>'+pins+'</svg></div>';
 }
 SCREENS.cities=function(){
@@ -455,42 +569,58 @@ function koWinnerName(id,names){
  if(a>b)return n.hN; if(b>a)return n.aN; var pen=koS(id,"pen"); return pen==="h"?n.hN:pen==="a"?n.aN:null;
 }
 function koCompute(){
- var names={}; var seeded=allComplete();
- if(seeded){
-  var winners={},runners={},thirds=[];
-  D.ORDER.forEach(function(g){var s=standings(g);winners[g]=s[0].name;runners[g]=s[1].name;thirds.push({g:g,name:s[2].name,pts:s[2].pts,gd:s[2].gd,gf:s[2].gf});});
+ var names={}; var complete=allComplete();
+ var winners={},runners={},thirds=[];
+ /* winners & runners-up fill in as soon as each group is finished (provisional) */
+ D.ORDER.forEach(function(g){var s=standings(g),c=groupComplete(g);
+  winners[g]=c?s[0].name:""; runners[g]=c?s[1].name:"";
+  if(c)thirds.push({g:g,name:s[2].name,pts:s[2].pts,gd:s[2].gd,gf:s[2].gf});});
+ /* 3rd-place qualification needs all 12 groups ‚Üí only resolved when everything is complete */
+ var assign=null, thirdByGroup={};
+ if(complete){
   thirds.sort(function(a,b){return b.pts-a.pts||b.gd-a.gd||b.gf-a.gf||(a.g<b.g?-1:1);});
   var top8=thirds.slice(0,8);
   var key=top8.map(function(x){return x.g;}).sort().join("");
-  var assign=D.COMBOS[key]; var thirdByGroup={}; top8.forEach(function(x){thirdByGroup[x.g]=x.name;});
-  function resolve(spec){ if(spec[0]==="1")return winners[spec[1]]; if(spec[0]==="2")return runners[spec[1]];
-   var col=parseInt(spec.slice(2),10); return thirdByGroup[assign[col]]; }
-  KO_R32.forEach(function(pp,i){ names["r32_"+i]={hN:resolve(pp[0]),aN:resolve(pp[1])}; });
- } else { for(var i=0;i<16;i++)names["r32_"+i]={hN:"",aN:""}; }
+  assign=D.COMBOS[key]; top8.forEach(function(x){thirdByGroup[x.g]=x.name;});
+ }
+ function resolve(spec){ if(spec[0]==="1")return winners[spec[1]]||""; if(spec[0]==="2")return runners[spec[1]]||"";
+  if(!assign)return ""; var col=parseInt(spec.slice(2),10); return thirdByGroup[assign[col]]||""; }
+ KO_R32.forEach(function(pp,i){ names["r32_"+i]={hN:resolve(pp[0]),aN:resolve(pp[1])}; });
  for(var r=1;r<KO_ROUNDS.length;r++){ var R=KO_ROUNDS[r];
   for(var j=0;j<R.n;j++){ var pr=R.src[j];
    names[R.key+"_"+j]={hN:koWinnerName(pr[0][0]+"_"+pr[0][1],names)||"", aN:koWinnerName(pr[1][0]+"_"+pr[1][1],names)||""};
   }
  }
- return {names:names,seeded:seeded};
+ return {names:names,seeded:complete};
 }
+/* readable labels so the bracket shows WHO MEETS WHOM before scores are entered */
+function koRoundShort(k){return {r32:"1/16",r16:"1/8",qf:"1/4",sf:"1/2",f:"F"}[k]||k;}
+function koWinnerWord(){return LANG==="fr"?"Vainq.":LANG==="de"?"Sieger":"Winner";}
+function koSpecLabel(spec){var p=spec.charAt(0);
+ if(p==="1")return (LANG==="fr"?"1er Gr. ":LANG==="de"?"1. Gr. ":"1st Grp ")+spec.charAt(1);
+ if(p==="2")return (LANG==="fr"?"2e Gr. ":LANG==="de"?"2. Gr. ":"2nd Grp ")+spec.charAt(1);
+ return LANG==="fr"?"3e place":LANG==="de"?"3. Platz":"3rd place";}
+function koSlotLbl(R,i,side){ if(R.key==="r32")return koSpecLabel(KO_R32[i][side]);
+ var pr=R.src[i][side]; return koWinnerWord()+" "+koRoundShort(pr[0])+" #"+(pr[1]+1); }
 function koSection(){
  var C=koCompute(), names=C.names; var h="";
  var champ=koWinnerName("f_0",names);
  if(champ){ h+='<div class="champ"><small>üèÜ '+t("ko_champ")+'</small>'+flag(champ)+' '+champ+'</div>'; }
- if(!C.seeded){ h+='<div class="note">'+t("ko_need")+'</div>'; }
+ if(!C.seeded){ h+='<div class="note">'+t("ko_prov")+'</div>'; }
  else { h+='<div class="note">'+t("ko_auto")+'</div>'; }
  KO_ROUNDS.forEach(function(R){
   h+='<div class="ko-round"><h3>'+t(R.lab)+'</h3>';
   for(var i=0;i<R.n;i++){ var id=R.key+"_"+i; var n=names[id]||{hN:"",aN:""};
    var hN=n.hN,aN=n.aN,hS=koS(id,"hS")||"",aS=koS(id,"aS")||""; var w=koWinnerName(id,names);
-   function row(nm,sc,side){ var cls=nm?(w===nm?"winner":"set"):"";
+   function row(nm,sc,side,lbl){ var cls=nm?(w===nm?"winner":"set"):"";
      return '<div class="ko-row"><span class="flag">'+(D.FLAG[nm]||"¬∑")+'</span>'+
-      '<span class="ko-name '+cls+'">'+(nm?esc(nm):t("ko_tbd"))+'</span>'+
-      '<input class="ko-sc" inputmode="numeric" maxlength="2" value="'+esc(sc)+'" onchange="koEdit(\''+id+'\',\''+side+'\',this.value)"'+(nm?"":" disabled")+'></div>'; }
-   h+='<div class="ko-match">'+row(hN,hS,"hS")+row(aN,aS,"aS");
+      (nm?'<span class="ko-name '+cls+'">'+esc(nm)+'</span>':'<span class="ko-slot">'+esc(lbl)+'</span>')+
+      '<input class="ko-sc" inputmode="numeric" maxlength="2" value="'+esc(sc)+'" onchange="koEdit(\''+id+'\',\''+side+'\',this.value)"></div>'; }
+   h+='<div class="ko-match">'+row(hN,hS,"hS",koSlotLbl(R,i,0))+row(aN,aS,"aS",koSlotLbl(R,i,1));
    if(hN&&aN&&hS!==""&&aS!==""&&parseInt(hS,10)===parseInt(aS,10)){ var pw=koS(id,"pen")||"";
     h+='<div class="pen">'+t("ko_pen")+' <select onchange="koEdit(\''+id+'\',\'pen\',this.value)"><option value="">‚Äî</option><option value="h"'+(pw==="h"?" selected":"")+'>'+esc(hN)+'</option><option value="a"'+(pw==="a"?" selected":"")+'>'+esc(aN)+'</option></select></div>'; }
+   h+=koInfoRow(id)+koTvRow(id);
+   if(hN&&aN){ h+=commentBox("ko_"+id); }
    h+='</div>';
   }
   h+='</div>';
@@ -514,8 +644,8 @@ SCREENS.settings=function(){
 };
 function exportData(){var blob=new Blob([JSON.stringify(ST)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="worldcup2026-backup.json";a.click();}
 document.getElementById("imp").addEventListener("change",function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();
- r.onload=function(ev){try{ST=JSON.parse(ev.target.result);ST.scores=ST.scores||{};ST.koS=ST.koS||{};ST.sq=ST.sq||{};if(ST.lang)LANG=ST.lang;persist();alert(t("imported")+" ‚úÖ");tab("matches");}catch(x){alert(t("invalid_file"));}};r.readAsText(f);});
-function resetAll(){if(confirm(t("confirm_reset"))){ST={scores:{},koS:{},sq:{},lang:LANG};persist();tab("matches");}}
+ r.onload=function(ev){try{ST=JSON.parse(ev.target.result);ST.scores=ST.scores||{};ST.koS=ST.koS||{};ST.sq=ST.sq||{};ST.comments=ST.comments||{};ST.koTV=ST.koTV||{};if(ST.lang)LANG=ST.lang;persist();alert(t("imported")+" ‚úÖ");tab("matches");}catch(x){alert(t("invalid_file"));}};r.readAsText(f);});
+function resetAll(){if(confirm(t("confirm_reset"))){ST={scores:{},koS:{},sq:{},comments:{},koTV:{},lang:LANG};persist();tab("matches");}}
 
 render();
 </script>
